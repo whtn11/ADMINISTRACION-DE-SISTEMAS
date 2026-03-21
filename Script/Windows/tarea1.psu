@@ -1,0 +1,71 @@
+# ============================================================
+#  TAREA 1 - Script de Diagnóstico del Sistema
+#  Materia: Sistemas
+#  Servidor: Srv-Win-Sistemas | IP: 192.168.10.15
+# ============================================================
+
+$LINEA = "============================================================"
+
+Write-Host $LINEA -ForegroundColor Blue
+Write-Host "       DIAGNÓSTICO DEL SISTEMA - TAREA 1" -ForegroundColor Green
+Write-Host $LINEA -ForegroundColor Blue
+
+# 1. Nombre del equipo
+Write-Host "`n[1] NOMBRE DEL EQUIPO:" -ForegroundColor Yellow
+Write-Host "    $($env:COMPUTERNAME)"
+
+# 2. IP actual (red interna)
+Write-Host "`n[2] DIRECCIÓN IP ACTUAL:" -ForegroundColor Yellow
+$IPs = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -ne "127.0.0.1" }
+foreach ($ip in $IPs) {
+    Write-Host "    Interfaz: $($ip.InterfaceAlias) -> $($ip.IPAddress)/$($ip.PrefixLength)"
+}
+
+# 3. Espacio en disco
+Write-Host "`n[3] ESPACIO EN DISCO:" -ForegroundColor Yellow
+$discos = Get-PSDrive -PSProvider FileSystem
+foreach ($disco in $discos) {
+    $usado = [math]::Round($disco.Used / 1GB, 2)
+    $libre = [math]::Round($disco.Free / 1GB, 2)
+    $total = [math]::Round(($disco.Used + $disco.Free) / 1GB, 2)
+    Write-Host "    Unidad $($disco.Name): Total: ${total}GB  Usado: ${usado}GB  Libre: ${libre}GB"
+}
+
+# 4. Memoria RAM
+Write-Host "`n[4] MEMORIA RAM:" -ForegroundColor Yellow
+$os = Get-CimInstance Win32_OperatingSystem
+$totalRAM = [math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
+$libreRAM = [math]::Round($os.FreePhysicalMemory / 1MB, 2)
+$usadaRAM = [math]::Round($totalRAM - $libreRAM, 2)
+Write-Host "    Total: ${totalRAM}GB  Usada: ${usadaRAM}GB  Libre: ${libreRAM}GB"
+
+# 5. Sistema Operativo
+Write-Host "`n[5] SISTEMA OPERATIVO:" -ForegroundColor Yellow
+$so = Get-CimInstance Win32_OperatingSystem
+Write-Host "    $($so.Caption) - Build $($so.BuildNumber)"
+
+# 6. Uptime
+Write-Host "`n[6] TIEMPO EN LÍNEA:" -ForegroundColor Yellow
+$uptime = (Get-Date) - $so.LastBootUpTime
+Write-Host "    $($uptime.Days) días, $($uptime.Hours) horas, $($uptime.Minutes) minutos"
+
+# 7. Prueba de conectividad
+Write-Host "`n[7] PRUEBA DE CONECTIVIDAD (PING):" -ForegroundColor Yellow
+
+$nodos = @(
+    @{IP="192.168.10.20"; Nombre="Srv-Linux-Sistemas"},
+    @{IP="192.168.10.30"; Nombre="Cliente-Sistemas"}
+)
+
+foreach ($nodo in $nodos) {
+    $resultado = Test-Connection -ComputerName $nodo.IP -Count 2 -Quiet
+    if ($resultado) {
+        Write-Host "    [OK]   $($nodo.Nombre) ($($nodo.IP)) - Alcanzable" -ForegroundColor Green
+    } else {
+        Write-Host "    [FAIL] $($nodo.Nombre) ($($nodo.IP)) - Sin respuesta" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n$LINEA" -ForegroundColor Blue
+Write-Host "        FIN DEL DIAGNÓSTICO" -ForegroundColor Green
+Write-Host "$LINEA`n" -ForegroundColor Blue

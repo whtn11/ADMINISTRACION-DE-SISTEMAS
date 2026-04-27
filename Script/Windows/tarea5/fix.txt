@@ -1,0 +1,10 @@
+# Crear subcarpeta requerida por IsolateAllDirectories
+New-Item -ItemType Directory -Path "C:\ftp\LocalUser\elias\elias" -Force
+New-Item -ItemType Directory -Path "C:\ftp\LocalUser\khali\khali" -Force
+
+# Dar permisos
+icacls "C:\ftp\LocalUser\elias\elias" /grant "elias:(OI)(CI)F"
+icacls "C:\ftp\LocalUser\khali\khali" /grant "khali:(OI)(CI)F"
+
+net stop FTPSVC
+net start FTPSVC

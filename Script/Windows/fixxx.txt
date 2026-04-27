@@ -1,0 +1,3 @@
+Get-EventLog -LogName System -Source *W3SVC* -Newest 5 -ErrorAction SilentlyContinue
+iisreset
+curl.exe -I http://localhost:80

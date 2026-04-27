@@ -1,0 +1,112 @@
+#!/bin/bash
+# ============================================================
+# TAREA 5 - Cambiar grupo de usuario FTP
+# Archivo: cambiar_grupo_ftp.sh
+# ============================================================
+
+FTP_ROOT="/srv/ftp"
+
+function verificar_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo "Ejecuta como root (sudo)"
+        exit 1
+    fi
+}
+
+function aplicar_permisos_general() {
+    local USUARIO="$1"
+
+    # Remontar general con permisos correctos
+    umount -l "$FTP_ROOT/$USUARIO/general" 2>/dev/null
+    mount --bind "$FTP_ROOT/general" "$FTP_ROOT/$USUARIO/general"
+    chown ftp:ftp_usuarios "$FTP_ROOT/$USUARIO/general"
+    chmod 755 "$FTP_ROOT/$USUARIO/general"
+
+    # ACL con mask correcto para escritura
+    setfacl -m u::rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m u:juan:rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m u:ana:rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m m::rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m d:u:juan:rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m d:u:ana:rwx "$FTP_ROOT/$USUARIO/general"
+    setfacl -m d:m::rwx "$FTP_ROOT/$USUARIO/general"
+
+    # Corregir subcarpetas existentes
+    find "$FTP_ROOT/$USUARIO/general" -mindepth 1 -type d -exec chmod u+wx {} \;
+    find "$FTP_ROOT/$USUARIO/general" -mindepth 1 -type d -exec setfacl -m u:juan:rwx,u:ana:rwx,m::rwx,d:u:juan:rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+    chcon -R -t public_content_rw_t "$FTP_ROOT/$USUARIO/general"
+    echo "[OK] Carpeta general remontada con permisos correctos."
+}
+
+function cambiar_grupo() {
+    while true; do
+        read -p "Nombre del usuario: " USUARIO
+        id "$USUARIO" &>/dev/null && break
+        echo "Usuario no existe."
+    done
+
+    echo "Carpetas actuales de $USUARIO:"
+    ls "$FTP_ROOT/$USUARIO/"
+
+    while true; do
+        read -p "Nuevo grupo (reprobados/recursadores): " NUEVO_GRUPO
+        [[ "$NUEVO_GRUPO" == "reprobados" || "$NUEVO_GRUPO" == "recursadores" ]] && break
+        echo "Grupo invalido."
+    done
+
+    GRUPO_ANTERIOR=$(groups "$USUARIO" | grep -oE "reprobados|recursadores" | head -1)
+    echo "Grupo anterior: $GRUPO_ANTERIOR"
+    echo "Nuevo grupo: $NUEVO_GRUPO"
+
+    if [[ "$GRUPO_ANTERIOR" == "$NUEVO_GRUPO" ]]; then
+        echo "El usuario ya pertenece a ese grupo."
+        return
+    fi
+
+    # Desmontar y eliminar carpetas de grupo anterior
+    for GRUPO in reprobados recursadores; do
+        if [ -d "$FTP_ROOT/$USUARIO/$GRUPO" ]; then
+            umount -l "$FTP_ROOT/$USUARIO/$GRUPO" 2>/dev/null
+            rm -rf "$FTP_ROOT/$USUARIO/$GRUPO"
+            echo "[OK] Carpeta $GRUPO eliminada."
+        fi
+    done
+
+    # Cambiar grupo del usuario
+    [[ -n "$GRUPO_ANTERIOR" ]] && gpasswd -d "$USUARIO" "$GRUPO_ANTERIOR" 2>/dev/null
+    usermod -aG "$NUEVO_GRUPO" "$USUARIO"
+    echo "[OK] Grupo cambiado a $NUEVO_GRUPO."
+
+    # Montar nueva carpeta de grupo
+    mkdir -p "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    mount --bind "$FTP_ROOT/grupos/$NUEVO_GRUPO" "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    chown "$USUARIO":"$NUEVO_GRUPO" "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    chmod 775 "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    setfacl -m u:"$USUARIO":rwx "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    setfacl -m m::rwx "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    setfacl -m d:u:"$USUARIO":rwx "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    setfacl -m d:m::rwx "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    chcon -R -t public_content_rw_t "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO"
+    echo "[OK] Carpeta $NUEVO_GRUPO montada."
+
+    # Remontar general con permisos correctos
+    aplicar_permisos_general "$USUARIO"
+
+    # Actualizar fstab
+    grep -v "$FTP_ROOT/$USUARIO/$NUEVO_GRUPO\|$FTP_ROOT/$USUARIO/general" /etc/fstab > /tmp/fstab_clean
+    echo "$FTP_ROOT/general         $FTP_ROOT/$USUARIO/general   none  bind  0 0" >> /tmp/fstab_clean
+    echo "$FTP_ROOT/grupos/$NUEVO_GRUPO  $FTP_ROOT/$USUARIO/$NUEVO_GRUPO  none  bind  0 0" >> /tmp/fstab_clean
+    cp /tmp/fstab_clean /etc/fstab
+    echo "[OK] fstab actualizado."
+
+    echo ""
+    echo "=== Carpetas de $USUARIO ==="
+    ls -la "$FTP_ROOT/$USUARIO/"
+    echo ""
+    echo "Grupos de $USUARIO:"
+    groups "$USUARIO"
+}
+
+verificar_root
+cambiar_grupo

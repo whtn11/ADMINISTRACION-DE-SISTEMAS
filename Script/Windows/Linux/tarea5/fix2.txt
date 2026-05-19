@@ -1,0 +1,71 @@
+# == JUAN ==
+sudo chmod 555 /srv/ftp/juan
+sudo chown juan:juan /srv/ftp/juan
+
+sudo chmod 755 /srv/ftp/juan/general
+sudo setfacl -m u::rwx,u:juan:rwx,u:ana:rwx,m::rwx /srv/ftp/juan/general
+sudo setfacl -m d:u:juan:rwx,d:u:ana:rwx,d:m::rwx /srv/ftp/juan/general
+sudo find /srv/ftp/juan/general -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/juan/general -mindepth 1 -type d -exec setfacl -m u:juan:rwx,u:ana:rwx,m::rwx,d:u:juan:rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+sudo chmod 755 /srv/ftp/juan/juan
+sudo chown juan:juan /srv/ftp/juan/juan
+sudo setfacl -m u:juan:rwx,m::rwx,d:u:juan:rwx,d:m::rwx /srv/ftp/juan/juan
+sudo find /srv/ftp/juan/juan -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/juan/juan -mindepth 1 -type d -exec setfacl -m u:juan:rwx,m::rwx,d:u:juan:rwx,d:m::rwx {} \;
+
+sudo chmod 755 /srv/ftp/juan/recursadores
+sudo chown juan:recursadores /srv/ftp/juan/recursadores
+sudo setfacl -m u:juan:rwx,m::rwx,d:u:juan:rwx,d:m::rwx /srv/ftp/juan/recursadores
+sudo find /srv/ftp/juan/recursadores -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/juan/recursadores -mindepth 1 -type d -exec setfacl -m u:juan:rwx,m::rwx,d:u:juan:rwx,d:m::rwx {} \;
+
+# == ANA ==
+sudo chmod 555 /srv/ftp/ana
+sudo chown ana:ana /srv/ftp/ana
+
+sudo chmod 755 /srv/ftp/ana/general
+sudo setfacl -m u::rwx,u:juan:rwx,u:ana:rwx,m::rwx /srv/ftp/ana/general
+sudo setfacl -m d:u:juan:rwx,d:u:ana:rwx,d:m::rwx /srv/ftp/ana/general
+sudo find /srv/ftp/ana/general -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/ana/general -mindepth 1 -type d -exec setfacl -m u:juan:rwx,u:ana:rwx,m::rwx,d:u:juan:rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+sudo chmod 755 /srv/ftp/ana/ana
+sudo chown ana:ana /srv/ftp/ana/ana
+sudo setfacl -m u:ana:rwx,m::rwx,d:u:ana:rwx,d:m::rwx /srv/ftp/ana/ana
+sudo find /srv/ftp/ana/ana -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/ana/ana -mindepth 1 -type d -exec setfacl -m u:ana:rwx,m::rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+sudo chmod 755 /srv/ftp/ana/recursadores
+sudo chown ana:recursadores /srv/ftp/ana/recursadores
+sudo setfacl -m u:ana:rwx,m::rwx,d:u:ana:rwx,d:m::rwx /srv/ftp/ana/recursadores
+sudo find /srv/ftp/ana/recursadores -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/ana/recursadores -mindepth 1 -type d -exec setfacl -m u:ana:rwx,m::rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+# == GENERAL ORIGINAL ==
+sudo chmod 755 /srv/ftp/general
+sudo chown ftp:ftp_usuarios /srv/ftp/general
+sudo setfacl -m u::rwx,u:juan:rwx,u:ana:rwx,m::rwx /srv/ftp/general
+sudo setfacl -m d:u:juan:rwx,d:u:ana:rwx,d:m::rwx /srv/ftp/general
+sudo find /srv/ftp/general -mindepth 1 -type d -exec chmod u+wx {} \;
+sudo find /srv/ftp/general -mindepth 1 -type d -exec setfacl -m u:juan:rwx,u:ana:rwx,m::rwx,d:u:juan:rwx,d:u:ana:rwx,d:m::rwx {} \;
+
+# == PUBLIC PARA ANONYMOUS ==
+sudo mkdir -p /srv/ftp/public
+sudo chmod 555 /srv/ftp/public
+sudo chown ftp:ftp /srv/ftp/public
+mountpoint -q /srv/ftp/public || sudo mount --bind /srv/ftp/general /srv/ftp/public
+sudo mount -o remount,ro,bind /srv/ftp/public
+
+# == SELINUX ==
+sudo chcon -R -t public_content_rw_t /srv/ftp/general
+sudo chcon -t public_content_t /srv/ftp/public
+sudo setsebool -P ftpd_full_access on
+
+# == CRON ==
+sudo bash -c 'cat > /etc/cron.d/ftp_permisos << EOF
+* * * * * root find /srv/ftp/general -mindepth 1 -type d -exec chmod u+wx {} \; && find /srv/ftp/general -mindepth 1 -type d -exec setfacl -m u:juan:rwx,u:ana:rwx,m::rwx,d:u:juan:rwx,d:u:ana:rwx,d:m::rwx {} \;
+EOF'
+
+sudo systemctl restart vsftpd
+echo "Listo."

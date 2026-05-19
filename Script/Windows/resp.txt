@@ -1,0 +1,4 @@
+$conf = "C:\Users\Administrador\AppData\Roaming\Apache24\conf\httpd.conf"
+(Get-Content $conf) -replace 'Define SRVROOT "/Apache24ah64"', 'Define SRVROOT "C:/Users/Administrador/AppData/Roaming/Apache24"' | Set-Content $conf
+
+(Get-Content $conf)[35..42]

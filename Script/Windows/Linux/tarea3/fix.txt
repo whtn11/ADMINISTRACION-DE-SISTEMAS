@@ -1,0 +1,48 @@
+#!/bin/bash
+# ============================================================
+# TAREA 5 - Permisos FTP finales
+# Archivo: permisos_ftp_final.sh
+# ============================================================
+
+FTP_ROOT="/srv/ftp"
+
+echo "=== Configurando permisos Ana ==="
+chown root:ana "$FTP_ROOT/ana/general"
+chmod 775 "$FTP_ROOT/ana/general"
+chown root:ana "$FTP_ROOT/ana/recursadores"
+chmod 775 "$FTP_ROOT/ana/recursadores"
+chown ana:ana "$FTP_ROOT/ana/ana"
+chmod 755 "$FTP_ROOT/ana/ana"
+chown ana:ana "$FTP_ROOT/ana"
+chmod 755 "$FTP_ROOT/ana"
+
+echo "=== Configurando permisos Juan ==="
+chown root:juan "$FTP_ROOT/juan/general"
+chmod 775 "$FTP_ROOT/juan/general"
+chown root:juan "$FTP_ROOT/juan/reprobados"
+chmod 775 "$FTP_ROOT/juan/reprobados"
+chown juan:juan "$FTP_ROOT/juan/juan"
+chmod 755 "$FTP_ROOT/juan/juan"
+chown juan:juan "$FTP_ROOT/juan"
+chmod 755 "$FTP_ROOT/juan"
+
+echo "=== Actualizando vsftpd.conf ==="
+sed -i '/^local_root=/d' /etc/vsftpd/vsftpd.conf
+sed -i '/^user_sub_token=/d' /etc/vsftpd/vsftpd.conf
+echo "local_root=/srv/ftp/\$USER" >> /etc/vsftpd/vsftpd.conf
+echo "user_sub_token=\$USER" >> /etc/vsftpd/vsftpd.conf
+
+echo "=== SELinux ==="
+setsebool -P ftpd_full_access on
+chcon -R -t public_content_rw_t "$FTP_ROOT"
+
+echo "=== Reiniciando vsftpd ==="
+systemctl restart vsftpd
+systemctl is-active --quiet vsftpd && echo "vsftpd activo." || echo "Error."
+
+echo ""
+echo "=== Permisos Ana ==="
+ls -la "$FTP_ROOT/ana/"
+echo ""
+echo "=== Permisos Juan ==="
+ls -la "$FTP_ROOT/juan/"

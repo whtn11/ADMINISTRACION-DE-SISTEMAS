@@ -1,0 +1,1 @@
+curl.exe -T "C:\nginx.zip" "ftp://192.168.10.20/http/Windows/Nginx/nginx-1.24.0.zip" -u anonymous:

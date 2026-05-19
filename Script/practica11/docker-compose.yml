@@ -1,0 +1,61 @@
+networks:
+  red_publica:
+    driver: bridge
+  red_datos:
+    driver: bridge
+
+volumes:
+  db_data:
+
+services:
+
+  nginx:
+    image: nginx:alpine
+    container_name: balanceador_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - red_publica
+    depends_on:
+      - app
+    restart: always
+
+  app:
+    image: httpd:alpine
+    container_name: servidor_app
+    networks:
+      - red_publica
+    restart: always
+
+  db:
+    image: postgres:alpine
+    container_name: servidor_db
+    env_file: .env
+    volumes:
+      - db_data:/var/lib/postgresql
+    networks:
+      - red_datos
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: panel_pgadmin
+    env_file: .env
+    ports:
+      - "127.0.0.1:5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    networks:
+      - red_datos
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always

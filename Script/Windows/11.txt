@@ -1,0 +1,22 @@
+cd /mnt/c/Users/elrom/Documents/ADMINISTRACION-DE-SISTEMAS/Script/practica11
+
+docker compose up -d
+
+docker ps
+
+Aislamiento 
+curl http://localhost:5432
+
+DNS interno
+docker exec panel_pgadmin ping -c 4 db
+
+http://localhost:5050
+Email: admin@practica11.com
+Password: admin123
+
+Healthcheck y persistencia
+docker compose down
+docker compose up -d
+
+
+docker compose down

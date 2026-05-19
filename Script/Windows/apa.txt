@@ -1,0 +1,4 @@
+curl.exe -k -I https://localhost:443
+curl.exe -k -I https://localhost:9443
+curl.exe -k -I https://localhost:8443
+curl.exe --ssl -k ftp://juan:ervg2005@192.168.10.20/

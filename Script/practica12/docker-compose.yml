@@ -1,0 +1,62 @@
+networks:
+  mail_network:
+    driver: bridge
+
+volumes:
+  mail-data:
+  mail-state:
+  mail-logs:
+
+services:
+
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: mailserver
+    hostname: mail.reprobados.com
+    env_file: .env
+    ports:
+      - "25:25"
+      - "143:143"
+      - "587:587"
+      - "993:993"
+    volumes:
+      - mail-data:/var/mail
+      - mail-state:/var/mail-state
+      - mail-logs:/var/log/mail
+      - ./config:/tmp/docker-mailserver
+    environment:
+      - ENABLE_RSPAMD=1
+      - ENABLE_CLAMAV=0
+      - ENABLE_FAIL2BAN=1
+      - ENABLE_OPENDKIM=1
+      - ENABLE_OPENDMARC=1
+      - ENABLE_SPAMASSASSIN=0
+      - SSL_TYPE=
+      - POSTMASTER_ADDRESS=admin@reprobados.com
+      - ENABLE_SASLAUTHD=0
+      - SMTP_ONLY=0
+      - PERMIT_DOCKER=connected-subnet
+    networks:
+      - mail_network
+    restart: always
+    stop_grace_period: 1m
+
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    container_name: webmail
+    ports:
+      - "8080:80"
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST=mailserver
+      - ROUNDCUBEMAIL_SMTP_SERVER=mailserver
+      - ROUNDCUBEMAIL_SMTP_PORT=587
+      - ROUNDCUBEMAIL_DEFAULT_PORT=143
+      - ROUNDCUBEMAIL_DB_TYPE=sqlite
+      - ROUNDCUBEMAIL_SKIN=elastic
+      - ROUNDCUBEMAIL_SMTP_USER=%u
+      - ROUNDCUBEMAIL_SMTP_PASS=%p
+    networks:
+      - mail_network
+    depends_on:
+      - mailserver
+    restart: always

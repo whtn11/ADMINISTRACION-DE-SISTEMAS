@@ -1,0 +1,23 @@
+cd /mnt/c/Users/elrom/Documents/ADMINISTRACION-DE-SISTEMAS/Script/practica11
+docker compose up -d 
+
+
+Envío y recepción local
+http://localhost:8080
+director@reprobados.com / password123
+admin@reprobados.com
+admin@reprobados.com / password123
+
+Auditoría de logs
+docker exec mailserver cat /var/log/mail/mail.log | tail -30
+
+Fail2ban
+docker exec mailserver fail2ban-client status
+docker exec mailserver fail2ban-client get dovecot maxretry
+
+Respaldo
+bash backup.sh
+tar -tzf ./backups/mail_backup_$(date +%F).tar.gz | head -20
+
+Persistencia
+docker restart webmail

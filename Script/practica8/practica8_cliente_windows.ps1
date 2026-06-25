@@ -172,8 +172,8 @@ function Mostrar-Menu {
     do {
         Clear-Host
         Write-Host "========================================" -ForegroundColor Yellow
-        Write-Host "   Practica 8 — Cliente Windows         " -ForegroundColor Red
-        Write-Host "   Dominio: $DOMINIO                    " -ForegroundColor DarkGray
+        Write-Host "   Practica 8 - Cliente Windows         " -ForegroundColor Red
+        Write-Host "   Dominio: $DOMINIO                   " -ForegroundColor DarkGray
         Write-Host "========================================" -ForegroundColor Yellow
         Write-Host "  [1] Unirse al dominio"
         Write-Host "  [2] Salir del dominio"

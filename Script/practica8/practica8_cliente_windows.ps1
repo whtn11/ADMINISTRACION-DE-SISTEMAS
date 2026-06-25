@@ -163,7 +163,7 @@ function Ver-Estado {
         $res = Resolve-DnsName $DOMINIO -ErrorAction Stop | Select-Object -First 1
         Print-Ok "DNS resuelve $DOMINIO -> $($res.IPAddress)"
     } catch {
-        Print-Err "No se pudo resolver $DOMINIO — verifica el DNS apuntando al servidor."
+        Print-Err "No se pudo resolver $DOMINIO - verifica el DNS apuntando al servidor."
     }
 }
 

@@ -1,33 +1,26 @@
 #!/bin/bash
-# Practica 8 — Cliente Linux
+# Practica 8 - Cliente Linux (AlmaLinux / RHEL)
 # Une el equipo al dominio empresa.local mediante realmd/sssd/adcli
 
 set -euo pipefail
 
 DOMINIO="empresa.local"
-IP_SERVIDOR="192.168.10.150"
+IP_SERVIDOR="192.168.10.10"
 ADMIN_USER="eromero"
 
-# -----------------------------------------------
-# COLORES
-# -----------------------------------------------
 ok()   { echo -e "\e[32m[OK]   $1\e[0m"; }
 info() { echo -e "\e[36m[INFO] $1\e[0m"; }
 warn() { echo -e "\e[33m[WARN] $1\e[0m"; }
 err()  { echo -e "\e[31m[ERR]  $1\e[0m"; }
 
-
-# -----------------------------------------------
-# 1. VERIFICAR ROOT
-# -----------------------------------------------
 if [[ $EUID -ne 0 ]]; then
-    err "Este script debe ejecutarse como root (sudo ./practica8_cliente_linux.sh)"
+    err "Ejecuta como root: sudo ./practica8_cliente_linux.sh"
     exit 1
 fi
 
 
 # -----------------------------------------------
-# 2. CONFIGURAR IP ESTATICA
+# 1. CONFIGURAR RED
 # -----------------------------------------------
 configurar_red() {
     info "Interfaces de red disponibles:"
@@ -35,7 +28,7 @@ configurar_red() {
 
     for i in "${!IFACES[@]}"; do
         IP_ACTUAL=$(ip -4 addr show "${IFACES[$i]}" 2>/dev/null | grep -oP '(?<=inet )\S+' || echo "sin IP")
-        echo "  [$((i+1))] ${IFACES[$i]}  —  $IP_ACTUAL"
+        echo "  [$((i+1))] ${IFACES[$i]}  -  $IP_ACTUAL"
     done
 
     read -rp "Selecciona interfaz de red interna [1]: " SEL
@@ -45,47 +38,24 @@ configurar_red() {
     read -rp "IP estatica para este cliente [192.168.10.202]: " IP_CLIENTE
     IP_CLIENTE=${IP_CLIENTE:-192.168.10.202}
 
-    info "Configurando $IFACE con IP $IP_CLIENTE..."
+    info "Configurando $IFACE con IP $IP_CLIENTE via NetworkManager..."
 
-    # Detectar si usa NetworkManager o netplan
-    if command -v nmcli &>/dev/null; then
-        CON=$(nmcli -t -f NAME,DEVICE con show --active | grep "$IFACE" | cut -d: -f1 | head -1)
-        if [[ -n "$CON" ]]; then
-            nmcli con mod "$CON" \
-                ipv4.addresses "$IP_CLIENTE/24" \
-                ipv4.gateway "192.168.10.1" \
-                ipv4.dns "$IP_SERVIDOR" \
-                ipv4.method manual
-            nmcli con up "$CON"
-        else
-            nmcli con add type ethernet ifname "$IFACE" con-name "red-dominio" \
-                ipv4.addresses "$IP_CLIENTE/24" \
-                ipv4.gateway "192.168.10.1" \
-                ipv4.dns "$IP_SERVIDOR" \
-                ipv4.method manual
-            nmcli con up "red-dominio"
-        fi
-    elif [[ -d /etc/netplan ]]; then
-        NETPLAN_FILE="/etc/netplan/01-dominio.yaml"
-        cat > "$NETPLAN_FILE" <<EOF
-network:
-  version: 2
-  ethernets:
-    ${IFACE}:
-      addresses: [${IP_CLIENTE}/24]
-      routes:
-        - to: default
-          via: 192.168.10.1
-      nameservers:
-        addresses: [${IP_SERVIDOR}]
-EOF
-        netplan apply
+    CON=$(nmcli -t -f NAME,DEVICE con show | grep "$IFACE" | cut -d: -f1 | head -1)
+
+    if [[ -n "$CON" ]]; then
+        nmcli con mod "$CON" \
+            ipv4.addresses "$IP_CLIENTE/24" \
+            ipv4.gateway "192.168.10.1" \
+            ipv4.dns "$IP_SERVIDOR" \
+            ipv4.method manual
+        nmcli con up "$CON"
     else
-        ip addr flush dev "$IFACE"
-        ip addr add "$IP_CLIENTE/24" dev "$IFACE"
-        ip route add default via 192.168.10.1 dev "$IFACE"
-        echo "nameserver $IP_SERVIDOR" > /etc/resolv.conf
-        warn "Configuracion temporal (no persiste al reinicio). Configura netplan o NetworkManager manualmente."
+        nmcli con add type ethernet ifname "$IFACE" con-name "red-dominio" \
+            ipv4.addresses "$IP_CLIENTE/24" \
+            ipv4.gateway "192.168.10.1" \
+            ipv4.dns "$IP_SERVIDOR" \
+            ipv4.method manual
+        nmcli con up "red-dominio"
     fi
 
     ok "Red configurada: $IP_CLIENTE | Gateway: 192.168.10.1 | DNS: $IP_SERVIDOR"
@@ -93,7 +63,7 @@ EOF
 
 
 # -----------------------------------------------
-# 3. PROBAR CONECTIVIDAD
+# 2. PROBAR CONECTIVIDAD
 # -----------------------------------------------
 probar_conectividad() {
     info "Probando conectividad con el servidor ($IP_SERVIDOR)..."
@@ -101,7 +71,6 @@ probar_conectividad() {
         ok "Servidor alcanzable."
     else
         err "No se puede alcanzar el servidor en $IP_SERVIDOR."
-        err "Verifica que el servidor este encendido y en la misma red."
         exit 1
     fi
 
@@ -109,50 +78,48 @@ probar_conectividad() {
     if host "$DOMINIO" "$IP_SERVIDOR" &>/dev/null; then
         ok "DNS resuelve $DOMINIO correctamente."
     else
-        err "No se pudo resolver $DOMINIO. Verifica que el servidor sea el DC y el DNS."
+        err "No se pudo resolver $DOMINIO. Verifica el servidor DNS."
         exit 1
     fi
 }
 
 
 # -----------------------------------------------
-# 4. INSTALAR PAQUETES
+# 3. INSTALAR PAQUETES (AlmaLinux / RHEL)
 # -----------------------------------------------
 instalar_paquetes() {
-    info "Actualizando repositorios..."
-    apt-get update -q
-
-    info "Instalando realmd, sssd, adcli y dependencias..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    info "Instalando paquetes necesarios..."
+    dnf install -y \
         realmd \
         sssd \
-        sssd-tools \
         sssd-ad \
+        sssd-tools \
         adcli \
-        samba-common-bin \
+        samba-common \
+        samba-common-tools \
         oddjob \
         oddjob-mkhomedir \
-        packagekit \
-        krb5-user \
-        2>/dev/null
+        krb5-workstation \
+        openldap-clients \
+        policycoreutils-python-utils
 
     ok "Paquetes instalados."
 }
 
 
 # -----------------------------------------------
-# 5. UNIRSE AL DOMINIO
+# 4. UNIRSE AL DOMINIO
 # -----------------------------------------------
 unir_dominio() {
     info "Descubriendo dominio $DOMINIO..."
     if ! realm discover "$DOMINIO"; then
-        err "No se pudo descubrir el dominio. Verifica red y DNS."
+        err "No se pudo descubrir el dominio."
         exit 1
     fi
 
     echo ""
-    info "Uniendo equipo al dominio $DOMINIO con el usuario $ADMIN_USER..."
-    info "Se pedira la contrasena del usuario $ADMIN_USER@$DOMINIO"
+    info "Uniendo equipo al dominio con el usuario $ADMIN_USER..."
+    info "Se pedira la contrasena de $ADMIN_USER"
     echo ""
 
     realm join -U "$ADMIN_USER" "$DOMINIO"
@@ -161,7 +128,7 @@ unir_dominio() {
 
 
 # -----------------------------------------------
-# 6. CONFIGURAR SSSD
+# 5. CONFIGURAR SSSD
 # -----------------------------------------------
 configurar_sssd() {
     info "Configurando sssd.conf..."
@@ -187,45 +154,38 @@ access_provider = ad
 EOF
 
     chmod 600 /etc/sssd/sssd.conf
-    ok "sssd.conf configurado (fallback_homedir = /home/%u@%d, nombres sin sufijo de dominio)."
-
     systemctl restart sssd
     systemctl enable sssd
-    ok "sssd reiniciado y habilitado."
+    ok "sssd configurado y habilitado."
 }
 
 
 # -----------------------------------------------
-# 7. HABILITAR CREACION AUTOMATICA DE HOME
+# 6. HABILITAR HOME AUTOMATICO + SUDO
 # -----------------------------------------------
 configurar_home() {
-    info "Habilitando creacion automatica de directorio home..."
-    pam-auth-update --enable mkhomedir
+    info "Habilitando creacion automatica de home (authselect)..."
+    authselect select sssd with-mkhomedir --force
+    systemctl enable --now oddjobd
     ok "mkhomedir habilitado."
 }
 
-
-# -----------------------------------------------
-# 8. CONFIGURAR SUDO PARA USUARIOS AD
-# -----------------------------------------------
 configurar_sudo() {
-    info "Configurando sudo para el usuario administrador AD ($ADMIN_USER)..."
+    info "Configurando sudo para $ADMIN_USER..."
 
-    SUDOERS_FILE="/etc/sudoers.d/ad-admins"
-
-    cat > "$SUDOERS_FILE" <<EOF
+    cat > /etc/sudoers.d/ad-admins <<EOF
 # Permisos sudo para administrador del dominio ${DOMINIO}
 ${ADMIN_USER}@${DOMINIO} ALL=(ALL) ALL
-${ADMIN_USER}           ALL=(ALL) ALL
+${ADMIN_USER}            ALL=(ALL) ALL
 EOF
 
-    chmod 440 "$SUDOERS_FILE"
-    ok "sudo configurado para $ADMIN_USER en $SUDOERS_FILE"
+    chmod 440 /etc/sudoers.d/ad-admins
+    ok "sudo configurado en /etc/sudoers.d/ad-admins"
 }
 
 
 # -----------------------------------------------
-# 9. VERIFICAR UNION
+# 7. VERIFICAR
 # -----------------------------------------------
 verificar() {
     echo ""
@@ -241,10 +201,10 @@ verificar() {
     echo ""
     info "Probando resolucion de usuario AD ($ADMIN_USER)..."
     if id "$ADMIN_USER" &>/dev/null; then
-        ok "Usuario $ADMIN_USER resuelto correctamente:"
+        ok "Usuario $ADMIN_USER resuelto:"
         id "$ADMIN_USER"
     else
-        warn "No se pudo resolver $ADMIN_USER. Puede tardar unos segundos en propagar."
+        warn "No se pudo resolver $ADMIN_USER. Puede tardar unos segundos."
     fi
 
     echo "--- FIN VERIFICACION ---"
@@ -259,7 +219,6 @@ salir_dominio() {
         warn "Este equipo no esta unido al dominio $DOMINIO."
         return
     fi
-
     info "Saliendo del dominio $DOMINIO..."
     realm leave "$DOMINIO"
     ok "Salido del dominio correctamente."
@@ -267,14 +226,14 @@ salir_dominio() {
 
 
 # -----------------------------------------------
-# MENU PRINCIPAL
+# MENU
 # -----------------------------------------------
 menu() {
     while true; do
         clear
         echo "========================================"
-        echo "   Practica 8 — Cliente Linux           "
-        echo "   Dominio: $DOMINIO                    "
+        echo "   Practica 8 - Cliente Linux           "
+        echo "   AlmaLinux | Dominio: $DOMINIO        "
         echo "========================================"
         echo "  [1] Configurar red"
         echo "  [2] Probar conectividad"
@@ -283,7 +242,7 @@ menu() {
         echo "  [5] Configurar sssd"
         echo "  [6] Habilitar home automatico + sudo"
         echo "  [7] Verificar union al dominio"
-        echo "  [8] Unirse al dominio (todo en uno)"
+        echo "  [8] Todo en uno"
         echo "  [9] Salir del dominio"
         echo "  [0] Salir"
         echo "========================================"

@@ -236,7 +236,7 @@ function Importar-Tokens-Servidor {
     }
     Print-Ok "Conexion establecida."
 
-    $rutaRemota = "\\$ip\c$\Users\eromero\claves_mfa.txt"
+    $rutaRemota = "\\$ip\c$\Users\Administrador\claves_mfa.txt"
 
     if (-not (Test-Path $rutaRemota)) {
         Print-Err "No se encontro el archivo en: $rutaRemota"

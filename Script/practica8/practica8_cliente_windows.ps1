@@ -3,7 +3,7 @@
 . "$PSScriptRoot\lib\helpers.ps1"
 
 $DOMINIO     = "empresa.local"
-$IP_SERVIDOR = "192.168.10.150"
+$IP_SERVIDOR = "192.168.10.10"
 
 
 function Configurar-Red {

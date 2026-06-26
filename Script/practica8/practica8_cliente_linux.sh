@@ -6,7 +6,7 @@ set -euo pipefail
 
 DOMINIO="empresa.local"
 IP_SERVIDOR="192.168.10.10"
-ADMIN_USER="eromero"
+ADMIN_USER="Administrador"
 
 ok()   { echo -e "\e[32m[OK]   $1\e[0m"; }
 info() { echo -e "\e[36m[INFO] $1\e[0m"; }

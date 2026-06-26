@@ -71,6 +71,13 @@ function Instalar-MultiOTP {
     Print-Info "Instalando multiOTP Credential Provider..."
     Start-Process "msiexec.exe" -ArgumentList "/i `"$MULTIOTP_MSI`" /quiet /norestart" -Wait
     Print-Ok "multiOTP instalado."
+
+    # Deshabilitar el credential provider en el servidor (solo el cliente lo necesita)
+    $cpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\{FCEFDFAB-B0A1-4C4D-8B2B-4FF4E0A3D978}"
+    if (Test-Path $cpKey) {
+        Remove-Item -Path $cpKey -Recurse -Force -ErrorAction SilentlyContinue
+        Print-Ok "Credential Provider deshabilitado en servidor (solo activo en clientes)."
+    }
 }
 
 
